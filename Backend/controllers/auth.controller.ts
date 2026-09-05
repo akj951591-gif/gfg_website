@@ -46,7 +46,7 @@ export const signupHandler = async (
       return res.status(400).json({ success: false, message: "An account with this email already exists." });
     }
 
-    const otpRecord = await Otp.findOne({ email }).sort({ createdAt: -1 });
+    const otpRecord = await Otp.findOne({ email , purpose:"SIGNUP" }).sort({ createdAt: -1 });
     if (!otpRecord) {
       return res.status(400).json({ success: false, message: "The verification OTP is invalid or has expired." });
     }
@@ -313,7 +313,6 @@ export const adminSignupHandler = async (
 
 export const sendOtp = async (req: Request, res: Response) => {
   const { email } = req.body;
-  console.log("OTP route requested. Email received:", email);
 
   if (!email) {
     return res.status(400).json({ error: "Email address is required." });
@@ -326,7 +325,11 @@ export const sendOtp = async (req: Request, res: Response) => {
   }
 
   try {
-    // Purane OTPs saaf kar do taaki hamesha fresh OTP rahe
+    const existingUser = await authService.findUserByEmail(email);
+    if (existingUser) {
+      return res.status(400).json({ error: "An account with this email already exists." });
+    }
+
     await Otp.deleteMany({ email });
 
     const otpCode = crypto.randomInt(100000, 999999).toString();
@@ -386,6 +389,12 @@ export const forgotPasswordOtp = async (req: Request, res: Response) => {
     return res.status(400).json({ error: "Email address is required." });
   }
 
+  if (!email.endsWith("@rgipt.ac.in")) {
+    return res.status(403).json({
+      error: "Access restricted. Please use your official institutional email ID."
+    });
+  }
+
   try {
     const user = await authService.findUserByEmail(email);
     if (!user) {
@@ -425,7 +434,7 @@ export const resetPassword = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Email, OTP, and new password fields are all required." });
     }
 
-    const otpRecord = await Otp.findOne({ email }).sort({ createdAt: -1 });
+    const otpRecord = await Otp.findOne({ email , purpose:"RESET" }).sort({ createdAt: -1 });
     if (!otpRecord) {
       return res.status(400).json({ error: "The password reset OTP is invalid or has expired." });
     }
